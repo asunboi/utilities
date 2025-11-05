@@ -1,3 +1,5 @@
+# Files / folders specific to this project
+
 # Jupyter Notebook
 **/.ipynb_checkpoints/
 
@@ -31,6 +33,5 @@ __pycache__/
 # Bioinfo reference databases
 **/star/
 
-# Datafiles in general
-
-
+# Figures
+*.png
