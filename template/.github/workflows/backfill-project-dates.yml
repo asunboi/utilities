@@ -1,0 +1,122 @@
+name: Backfill Project Dates
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch project metadata
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          USERNAME: asunboi
+          PROJECT_NUMBER: 3
+        run: |
+          gh api graphql -f query='
+            query($org: String!, $number: Int!) {
+              organization(login: $org) {
+                projectV2(number: $number) {
+                  id
+                  fields(first: 30) {
+                    nodes {
+                      ... on ProjectV2Field {
+                        id
+                        name
+                      }
+                      ... on ProjectV2DateField {
+                        id
+                        name
+                      }
+                    }
+                  }
+                }
+              }
+            }' -f org=$ORGANIZATION -F number=$PROJECT_NUMBER > project_fields.json
+
+          echo 'PROJECT_ID='$(jq -r '.data.organization.projectV2.id' project_fields.json) >> $GITHUB_ENV
+          echo 'START_FIELD_ID='$(jq -r '.data.organization.projectV2.fields.nodes[] | select(.name=="Start Date") | .id' project_fields.json) >> $GITHUB_ENV
+          echo 'END_FIELD_ID='$(jq -r '.data.organization.projectV2.fields.nodes[] | select(.name=="End Date") | .id' project_fields.json) >> $GITHUB_ENV
+
+      - name: Backfill start/end dates
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          # Fetch all open and closed issues in the repo
+          issues=$(gh issue list --state all --json number,createdAt,closedAt --limit 1000)
+
+          for row in $(echo "$issues" | jq -c '.[]'); do
+            number=$(echo $row | jq '.number')
+            created=$(echo $row | jq -r '.createdAt' | cut -d'T' -f1)
+            closed=$(echo $row | jq -r '.closedAt // empty' | cut -d'T' -f1)
+
+            # Get the GraphQL node ID for the issue
+            node_id=$(gh api graphql -f query='
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  issue(number: $number) {
+                    id
+                  }
+                }
+              }' -f owner=${{ github.repository_owner }} -f repo=${{ github.event.repository.name }} -F number=$number --jq '.data.repository.issue.id')
+
+            # Add the issue to the project (if not already)
+            item_id=$(gh api graphql -f query='
+              mutation($project:ID!, $content:ID!) {
+                addProjectV2ItemById(input: {projectId: $project, contentId: $content}) {
+                  item { id }
+                }
+              }' -f project=$PROJECT_ID -f content=$node_id --jq '.data.addProjectV2ItemById.item.id' 2>/dev/null || true)
+
+            # If it's already in the project, fetch item ID manually
+            if [ -z "$item_id" ]; then
+              item_id=$(gh api graphql -f query='
+                query($project: ID!) {
+                  node(id: $project) {
+                    ... on ProjectV2 {
+                      items(first: 100) {
+                        nodes {
+                          id
+                          content {
+                            ... on Issue {
+                              number
+                              id
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }' -f project=$PROJECT_ID | jq -r --arg n "$number" '.data.node.items.nodes[] | select(.content.number == ($n | tonumber)) | .id')
+            fi
+
+            # Set start date
+            gh api graphql -f query='
+              mutation($project: ID!, $item: ID!, $field: ID!, $value: Date!) {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: $project,
+                  itemId: $item,
+                  fieldId: $field,
+                  value: { date: $value }
+                }) {
+                  projectV2Item { id }
+                }
+              }' -f project=$PROJECT_ID -f item=$item_id -f field=$START_FIELD_ID -f value=$created
+
+            # Optionally set end date if issue is closed
+            if [ -n "$closed" ]; then
+              gh api graphql -f query='
+                mutation($project: ID!, $item: ID!, $field: ID!, $value: Date!) {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: $project,
+                    itemId: $item,
+                    fieldId: $field,
+                    value: { date: $value }
+                  }) {
+                    projectV2Item { id }
+                  }
+                }' -f project=$PROJECT_ID -f item=$item_id -f field=$END_FIELD_ID -f value=$closed
+            fi
+
+            echo "✅ Updated issue #$number with start=$created${closed:+, end=$closed}"
+          done
