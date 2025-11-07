@@ -1,3 +1,5 @@
+# Project specific ignores
+
 # Jupyter Notebook
 **/.ipynb_checkpoints/
 
@@ -19,6 +21,7 @@ __pycache__/
 *.csv
 *.h5
 *.stats.*
+*.h5ad
 
 # Output Files
 *.png
@@ -36,16 +39,3 @@ __pycache__/
 
 # Bioinfo reference databases
 **/star/
-
-# Specific to YAP
-**/yap_demultiplex
-all_rna_readnames.txt
-
-# Specific to GET
-**/M2XM_220316_211-R_C01
-**/M2XM_220325_216-R_B01
-**/get_model
-**/get_output
-**/ssp_agg/
-*.zarr
-*.h5ad
