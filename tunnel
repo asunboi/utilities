@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# VS Code–compatible nodes
+ALLOWED_NODES="emb0717 emb0731 emb0732 emb0733 emb0734 login03-adm \
+nodea0110 nodea0111 nodea0128 nodea0134 nodea0425 nodea0426 nodea0427 nodea0428 \
+nodea1426 nodea1427 nodea1428 nodea1429 \
+nodeb201 nodeb203 nodeb205 nodeb207 nodeb209 nodeb211 nodeb213 nodeb215 nodeb217 nodeb219 \
+nodeb301 nodeb303 nodeb305 nodeb307 nodeb309 nodeb311 nodeb313 nodeb315 nodeb317 nodeb319 \
+nodeb601 nodeb603 nodeb605 nodeb607 nodeb609 nodeb611 nodeb613 nodeb615 nodeb617 nodeb619 \
+nodeb801 nodeb803 nodeb805 nodeb807 \
+nodeb0301 nodeb0302 nodeb0303 nodeb0304 nodeb0305 nodeb0306 nodeb0307 nodeb0308 nodeb0309 \
+nodeb0310 nodeb0311 nodeb0312 nodeb0313 nodeb0314 nodeb0315 nodeb0316 \
+nodeb0417 nodeb0419 nodeb0421 nodeb0425 \
+nodeb1201 nodeb1203 nodeb1205 nodeb1207 nodeb1209 nodeb1211 nodeb1213 \
+nodeb04014 nodeb04071 nodeb04072 nodeb04073 nodeb04074 nodeb04091 nodeb04092 nodeb04093 \
+nodeb04111 nodeb04112 nodeb04113 nodeb04114 nodeb04131 nodeb04132 nodeb04133 nodeb04134 \
+nodeb04151 nodeb04152 nodeb04153 nodeb04154"
+
+usage() {
+  echo "Usage: $(basename "$0") -p {highmem|gpu|alphafold|shared} [extra sbatch args...]"
+  exit 1
+}
+
+PARTITION=""
+EXTRA_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -p|--partition)
+      [[ $# -lt 2 ]] && usage
+      PARTITION=$2
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      ;;
+    --)
+      shift
+      EXTRA_ARGS+=("$@")
+      break
+      ;;
+    *)
+      EXTRA_ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+if [[ -z "${PARTITION}" ]]; then
+  usage
+fi
+
+# Build nodelist of VS Code–compatible nodes that belong to the chosen partition
+NODELIST=$(
+  for n in $ALLOWED_NODES; do
+    parts=$(scontrol show node "$n" 2>/dev/null | awk -F= '/Partitions=/{print $2}' | awk '{print $1}')
+    [[ -z "$parts" ]] && continue
+    for p in $(echo "$parts" | tr ',' ' '); do
+      if [[ "$p" == "$PARTITION" ]]; then
+        echo "$n"
+        break
+      fi
+    done
+  done | sort -u | paste -sd, -
+)
+
+if [[ -z "${NODELIST}" ]]; then
+  echo "No VS Code–compatible nodes found in partition '${PARTITION}'." >&2
+  exit 2
+fi
+
+GRES_ARG=()
+case "${PARTITION}" in
+  gpu|alphafold)
+    GRES_ARG=(--gres=gpu:1)
+    ;;
+  *)
+    ;;
+esac
+
+sbatch --partition="${PARTITION}" --nodelist="${NODELIST}" "${GRES_ARG[@]}" "${EXTRA_ARGS[@]}" "$(dirname "$0")/tunnel.sh"
+
