@@ -2,6 +2,7 @@
 
 The current template looks like this. 
 
+```
 .
 ├── .github
 │   ├── ISSUE_TEMPLATE
@@ -23,6 +24,7 @@ The current template looks like this.
 ├── .gitignore
 ├── README.md
 └── TODO.md
+```
 
 Project organization was both driven by a need for me to be organized after I couldn't figure out what I was doing in any of my previous archived projects, but also by these great reads:
 
