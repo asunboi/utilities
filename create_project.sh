@@ -9,7 +9,7 @@ if [ -z "$1" ]; then
 fi
 
 PROJECT_NAME=$1
-TEMPLATE_DIR="/gpfs/home/asun/programs/utilities/template"
+TEMPLATE_DIR="./template"
 VISIBILITY="public"
 
 # Check if --private flag is set
