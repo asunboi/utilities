@@ -9,7 +9,8 @@ if [ -z "$1" ]; then
 fi
 
 PROJECT_NAME=$1
-TEMPLATE_DIR="./template"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMPLATE_DIR="$SCRIPT_DIR/template"
 VISIBILITY="public"
 
 # Check if --private flag is set
