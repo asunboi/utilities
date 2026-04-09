@@ -1,4 +1,5 @@
 # Files / folders specific to this project
+interactions.md
 
 # Jupyter Notebook
 **/.ipynb_checkpoints/
@@ -6,6 +7,9 @@
 # Data repositories
 **/output/
 **/raw_data/
+
+### MACOS
+.DS_Store
 
 ### Python ###
 # Byte-compiled / optimized / DLL files

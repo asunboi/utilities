@@ -1,0 +1,9 @@
+topics:
+  - name: Intro
+    slides_per_dot: [1, 1, 1, 1, 1]
+  - name: Data
+    slides_per_dot: [2, 2]
+  - name: Modeling
+    slides_per_dot: [1, 1]
+  - name: Outcomes
+    slides_per_dot: [1, 1, 1]
