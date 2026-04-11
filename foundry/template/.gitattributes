@@ -1,0 +1,6 @@
+# Merge strategy for agent state files.
+# union: concatenates both sides instead of marking conflicts.
+# Appropriate for append-only files written by multiple parallel agents.
+# See docs/agent-parallel-merge.md for rationale.
+.agent/TODO.md merge=union
+.agent/CONTEXT.md merge=union
